@@ -18,6 +18,55 @@ func NewTree(repo *Repository, id SHA1) *Tree {
 }
 
 // SubTree get a sub tree by the sub dir path
+func (t *Tree) SubTreeWithPageSize(rpath string, page, perPage int) (*Tree, int64, error) {
+	if len(rpath) == 0 {
+		return t, 0, nil
+	}
+
+	paths := strings.Split(rpath, "/")
+	var (
+		err error
+		g   = t
+		p   = t
+		te  *TreeEntry
+	)
+
+	var total int64
+	for _, name := range paths {
+		te, err = p.GetTreeEntryByPath(name)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		g, err = t.repo.getTree(te.ID)
+		if err != nil {
+			return nil, 0, err
+		}
+		g.ptree = p
+		p = g
+	}
+
+	total = int64(len(g.entries))
+	skip := (page - 1) * perPage
+	newEntries := make([]*TreeEntry, 0, perPage)
+	for i, entry := range g.entries {
+		if i < skip {
+			continue
+		}
+
+		if i >= skip+perPage {
+			break
+		}
+
+		newEntries = append(newEntries, entry)
+	}
+
+	g.entries = newEntries
+
+	return g, total, nil
+}
+
+// SubTree get a sub tree by the sub dir path
 func (t *Tree) SubTree(rpath string) (*Tree, error) {
 	if len(rpath) == 0 {
 		return t, nil

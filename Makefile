@@ -825,8 +825,9 @@ generate-backend: $(TAGS_PREREQ) generate-go
 
 .PHONY: generate-go
 generate-go: $(TAGS_PREREQ)
+	@echo "You may need to update GOMODCACHE before running this command."
 	@echo "Running go generate..."
-	@CC= GOOS= GOARCH= $(GO) generate -tags '$(TAGS)' $(GO_PACKAGES)
+	@CC= GOOS= GOARCH= GOMODCACHE=/home/chum/go/pkg/mod $(GO) generate -tags '$(TAGS)' $(GO_PACKAGES)
 
 .PHONY: security-check
 security-check:

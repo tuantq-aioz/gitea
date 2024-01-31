@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -79,7 +80,8 @@ func GetRawFile(ctx *context.APIContext) {
 		return
 	}
 
-	ctx.RespHeader().Set(giteaObjectTypeHeader, string(files_service.GetObjectTypeFromTreeEntry(entry)))
+	ctx.RespHeader().
+		Set(giteaObjectTypeHeader, string(files_service.GetObjectTypeFromTreeEntry(entry)))
 
 	if err := common.ServeBlob(ctx.Base, ctx.Repo.TreePath, blob, lastModified); err != nil {
 		ctx.Error(http.StatusInternalServerError, "ServeBlob", err)
@@ -128,12 +130,18 @@ func GetRawFileOrLFS(ctx *context.APIContext) {
 		return
 	}
 
-	ctx.RespHeader().Set(giteaObjectTypeHeader, string(files_service.GetObjectTypeFromTreeEntry(entry)))
+	ctx.RespHeader().
+		Set(giteaObjectTypeHeader, string(files_service.GetObjectTypeFromTreeEntry(entry)))
 
 	// LFS Pointer files are at most 1024 bytes - so any blob greater than 1024 bytes cannot be an LFS file
 	if blob.Size() > 1024 {
 		// First handle caching for the blob
-		if httpcache.HandleGenericETagTimeCache(ctx.Req, ctx.Resp, `"`+blob.ID.String()+`"`, lastModified) {
+		if httpcache.HandleGenericETagTimeCache(
+			ctx.Req,
+			ctx.Resp,
+			`"`+blob.ID.String()+`"`,
+			lastModified,
+		) {
 			return
 		}
 
@@ -160,7 +168,12 @@ func GetRawFileOrLFS(ctx *context.APIContext) {
 	}
 
 	if err := dataRc.Close(); err != nil {
-		log.Error("Error whilst closing blob %s reader in %-v. Error: %v", blob.ID, ctx.Repo.Repository, err)
+		log.Error(
+			"Error whilst closing blob %s reader in %-v. Error: %v",
+			blob.ID,
+			ctx.Repo.Repository,
+			err,
+		)
 	}
 
 	// Check if the blob represents a pointer
@@ -169,7 +182,12 @@ func GetRawFileOrLFS(ctx *context.APIContext) {
 	// if it's not a pointer, just serve the data directly
 	if !pointer.IsValid() {
 		// First handle caching for the blob
-		if httpcache.HandleGenericETagTimeCache(ctx.Req, ctx.Resp, `"`+blob.ID.String()+`"`, lastModified) {
+		if httpcache.HandleGenericETagTimeCache(
+			ctx.Req,
+			ctx.Resp,
+			`"`+blob.ID.String()+`"`,
+			lastModified,
+		) {
 			return
 		}
 
@@ -184,7 +202,12 @@ func GetRawFileOrLFS(ctx *context.APIContext) {
 	// If there isn't one, just serve the data directly
 	if err == git_model.ErrLFSObjectNotExist {
 		// Handle caching for the blob SHA (not the LFS object OID)
-		if httpcache.HandleGenericETagTimeCache(ctx.Req, ctx.Resp, `"`+blob.ID.String()+`"`, lastModified) {
+		if httpcache.HandleGenericETagTimeCache(
+			ctx.Req,
+			ctx.Resp,
+			`"`+blob.ID.String()+`"`,
+			lastModified,
+		) {
 			return
 		}
 
@@ -219,7 +242,9 @@ func GetRawFileOrLFS(ctx *context.APIContext) {
 	common.ServeContentByReadSeeker(ctx.Base, ctx.Repo.TreePath, lastModified, lfsDataRc)
 }
 
-func getBlobForEntry(ctx *context.APIContext) (blob *git.Blob, entry *git.TreeEntry, lastModified *time.Time) {
+func getBlobForEntry(
+	ctx *context.APIContext,
+) (blob *git.Blob, entry *git.TreeEntry, lastModified *time.Time) {
 	entry, err := ctx.Repo.Commit.GetTreeEntryByPath(ctx.Repo.TreePath)
 	if err != nil {
 		if git.IsErrNotExist(err) {
@@ -235,7 +260,8 @@ func getBlobForEntry(ctx *context.APIContext) (blob *git.Blob, entry *git.TreeEn
 		return nil, nil, nil
 	}
 
-	info, _, err := git.Entries([]*git.TreeEntry{entry}).GetCommitsInfo(ctx, ctx.Repo.Commit, path.Dir("/" + ctx.Repo.TreePath)[1:])
+	info, _, err := git.Entries([]*git.TreeEntry{entry}).
+		GetCommitsInfo(ctx, ctx.Repo.Commit, path.Dir("/" + ctx.Repo.TreePath)[1:])
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "GetCommitsInfo", err)
 		return nil, nil, nil
@@ -712,8 +738,10 @@ func handleCreateOrUpdateFileError(ctx *context.APIContext, err error) {
 		ctx.Error(http.StatusForbidden, "Access", err)
 		return
 	}
-	if git_model.IsErrBranchAlreadyExists(err) || models.IsErrFilenameInvalid(err) || models.IsErrSHADoesNotMatch(err) ||
-		models.IsErrFilePathInvalid(err) || models.IsErrRepoFileAlreadyExists(err) {
+	if git_model.IsErrBranchAlreadyExists(err) || models.IsErrFilenameInvalid(err) ||
+		models.IsErrSHADoesNotMatch(err) ||
+		models.IsErrFilePathInvalid(err) ||
+		models.IsErrRepoFileAlreadyExists(err) {
 		ctx.Error(http.StatusUnprocessableEntity, "Invalid", err)
 		return
 	}
@@ -726,7 +754,10 @@ func handleCreateOrUpdateFileError(ctx *context.APIContext, err error) {
 }
 
 // Called from both CreateFile or UpdateFile to handle both
-func createOrUpdateFiles(ctx *context.APIContext, opts *files_service.ChangeRepoFilesOptions) (*api.FilesResponse, error) {
+func createOrUpdateFiles(
+	ctx *context.APIContext,
+	opts *files_service.ChangeRepoFilesOptions,
+) (*api.FilesResponse, error) {
 	if !canWriteFiles(ctx, opts.OldBranch) {
 		return nil, repo_model.ErrUserDoesNotHaveAccessToRepo{
 			UserID:   ctx.Doer.ID,
@@ -738,7 +769,10 @@ func createOrUpdateFiles(ctx *context.APIContext, opts *files_service.ChangeRepo
 }
 
 // format commit message if empty
-func changeFilesCommitMessage(ctx *context.APIContext, files []*files_service.ChangeRepoFile) string {
+func changeFilesCommitMessage(
+	ctx *context.APIContext,
+	files []*files_service.ChangeRepoFile,
+) string {
 	var (
 		createFiles []string
 		updateFiles []string
@@ -857,7 +891,8 @@ func DeleteFile(ctx *context.APIContext) {
 	}
 
 	if filesResponse, err := files_service.ChangeRepoFiles(ctx, ctx.Repo.Repository, ctx.Doer, opts); err != nil {
-		if git.IsErrBranchNotExist(err) || models.IsErrRepoFileDoesNotExist(err) || git.IsErrNotExist(err) {
+		if git.IsErrBranchNotExist(err) || models.IsErrRepoFileDoesNotExist(err) ||
+			git.IsErrNotExist(err) {
 			ctx.Error(http.StatusNotFound, "DeleteFile", err)
 			return
 		} else if git_model.IsErrBranchAlreadyExists(err) ||
@@ -900,10 +935,20 @@ func GetContents(ctx *context.APIContext) {
 	//   in: path
 	//   description: path of the dir, file, symlink or submodule in the repo
 	//   type: string
-	//   required: true
+	//   required: false
 	// - name: ref
 	//   in: query
 	//   description: "The name of the commit/branch/tag. Default the repository’s default branch (usually master)"
+	//   type: string
+	//   required: false
+	// - name: page
+	//   in: query
+	//   description: "page number (default: 1)"
+	//   type: string
+	//   required: false
+	// - name: limit
+	//   in: query
+	//   description: "page size (default: 20, max: 50)"
 	//   type: string
 	//   required: false
 	// responses:
@@ -913,24 +958,69 @@ func GetContents(ctx *context.APIContext) {
 	//     "$ref": "#/responses/notFound"
 
 	if !canReadFiles(ctx.Repo) {
-		ctx.Error(http.StatusInternalServerError, "GetContentsOrList", repo_model.ErrUserDoesNotHaveAccessToRepo{
-			UserID:   ctx.Doer.ID,
-			RepoName: ctx.Repo.Repository.LowerName,
-		})
+		ctx.Error(
+			http.StatusInternalServerError,
+			"GetContentsOrList",
+			repo_model.ErrUserDoesNotHaveAccessToRepo{
+				UserID:   ctx.Doer.ID,
+				RepoName: ctx.Repo.Repository.LowerName,
+			},
+		)
 		return
 	}
 
 	treePath := ctx.Params("*")
 	ref := ctx.FormTrim("ref")
+	var (
+		page, perPage int
+		err           error
+	)
+	if pageStr := ctx.FormTrim("page"); pageStr != "" {
+		page, err = strconv.Atoi(pageStr)
+		if err != nil {
+			ctx.Error(http.StatusBadRequest, "GetContentsOrList", fmt.Errorf("invalid page"))
+			return
+		}
+	} else {
+		page = 1
+	}
 
-	if fileList, err := files_service.GetContentsOrList(ctx, ctx.Repo.Repository, treePath, ref); err != nil {
+	if perPageStr := ctx.FormTrim("limit"); perPageStr != "" {
+		perPage, err = strconv.Atoi(perPageStr)
+		if err != nil {
+			ctx.Error(http.StatusBadRequest, "GetContentsOrList", fmt.Errorf("invalid limit"))
+			return
+		}
+	} else {
+		perPage = 20
+	}
+
+	if perPage > 50 {
+		perPage = 50
+	}
+
+	fileList, total, err := files_service.GetContentsOrListWithPageSize(
+		ctx,
+		ctx.Repo.Repository,
+		treePath,
+		ref,
+		page,
+		perPage,
+	)
+	if err != nil {
 		if git.IsErrNotExist(err) {
 			ctx.NotFound("GetContentsOrList", err)
 			return
 		}
 		ctx.Error(http.StatusInternalServerError, "GetContentsOrList", err)
 	} else {
-		ctx.JSON(http.StatusOK, fileList)
+		ctx.JSON(http.StatusOK, struct {
+			Data  any   `json:"data"`
+			Total int64 `json:"total"`
+		}{
+			Data:  fileList,
+			Total: total,
+		})
 	}
 }
 
