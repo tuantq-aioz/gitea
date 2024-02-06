@@ -139,6 +139,8 @@ type CreateRepoOption struct {
 	// TrustModel of the repository
 	// enum: default,collaborator,committer,collaboratorcommitter
 	TrustModel string `json:"trust_model"`
+	// Price of the repository
+	Price *float64 `json:"price"`
 }
 
 // EditRepoOption options when editing a repository's properties

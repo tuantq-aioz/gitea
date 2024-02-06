@@ -253,6 +253,11 @@ func CreateUserRepo(ctx *context.APIContext, owner *user_model.User, opt api.Cre
 		return
 	}
 
+	if opt.Price == nil {
+		price := new(float64) // default to 0
+		opt.Price = price
+	}
+
 	repo, err := repo_service.CreateRepository(ctx, ctx.Doer, owner, repo_service.CreateRepoOptions{
 		Name:          opt.Name,
 		Description:   opt.Description,
@@ -265,6 +270,7 @@ func CreateUserRepo(ctx *context.APIContext, owner *user_model.User, opt api.Cre
 		DefaultBranch: opt.DefaultBranch,
 		TrustModel:    repo_model.ToTrustModel(opt.TrustModel),
 		IsTemplate:    opt.Template,
+		Price:         *opt.Price,
 	})
 	if err != nil {
 		if repo_model.IsErrRepoAlreadyExist(err) {
