@@ -92,7 +92,7 @@ func GetContentsOrListWithPageSize(
 	// We are in a directory, so we return a list of FileContentResponse objects
 	var fileList []*api.ContentsResponse
 
-	gitTree, total, err := commit.SubTreeWithPageSize(treePath, page, perPage)
+	gitTree, err := commit.SubTree(treePath)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -100,14 +100,32 @@ func GetContentsOrListWithPageSize(
 	if err != nil {
 		return nil, 0, err
 	}
+
+	total := int64(len(entries))
+	skip := int64((page - 1) * perPage)
+	newEntries := make([]*git.TreeEntry, 0, perPage)
+	for i, e := range entries {
+		if int64(i) < skip {
+			continue
+		}
+
+		if int64(i) >= skip+int64(perPage) {
+			break
+		}
+
+		newEntries = append(newEntries, e)
+	}
+
+	entries = newEntries
 	for _, e := range entries {
 		subTreePath := path.Join(treePath, e.Name())
-		fileContentResponse, err := GetContents(ctx, repo, subTreePath, origRef, true)
+		fileContentResponse, err := GetContents(ctx, repo, subTreePath, origRef, false)
 		if err != nil {
 			return nil, 0, err
 		}
 		fileList = append(fileList, fileContentResponse)
 	}
+
 	return fileList, total, nil
 }
 

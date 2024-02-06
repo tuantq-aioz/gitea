@@ -43,9 +43,15 @@ type CreateRepoOptions struct {
 	Status         repo_model.RepositoryStatus
 	TrustModel     repo_model.TrustModelType
 	MirrorInterval string
+	Price          float64
 }
 
-func prepareRepoCommit(ctx context.Context, repo *repo_model.Repository, tmpDir, repoPath string, opts CreateRepoOptions) error {
+func prepareRepoCommit(
+	ctx context.Context,
+	repo *repo_model.Repository,
+	tmpDir, repoPath string,
+	opts CreateRepoOptions,
+) error {
 	commitTimeStr := time.Now().Format(time.RFC3339)
 	authorSig := repo.Owner.NewGitSig()
 
@@ -63,7 +69,13 @@ func prepareRepoCommit(ctx context.Context, repo *repo_model.Repository, tmpDir,
 	if stdout, _, err := git.NewCommand(ctx, "clone").AddDynamicArguments(repoPath, tmpDir).
 		SetDescription(fmt.Sprintf("prepareRepoCommit (git clone): %s to %s", repoPath, tmpDir)).
 		RunStdString(&git.RunOpts{Dir: "", Env: env}); err != nil {
-		log.Error("Failed to clone from %v into %s: stdout: %s\nError: %v", repo, tmpDir, stdout, err)
+		log.Error(
+			"Failed to clone from %v into %s: stdout: %s\nError: %v",
+			repo,
+			tmpDir,
+			stdout,
+			err,
+		)
 		return fmt.Errorf("git clone: %w", err)
 	}
 
@@ -133,7 +145,13 @@ func prepareRepoCommit(ctx context.Context, repo *repo_model.Repository, tmpDir,
 }
 
 // InitRepository initializes README and .gitignore if needed.
-func initRepository(ctx context.Context, repoPath string, u *user_model.User, repo *repo_model.Repository, opts CreateRepoOptions) (err error) {
+func initRepository(
+	ctx context.Context,
+	repoPath string,
+	u *user_model.User,
+	repo *repo_model.Repository,
+	opts CreateRepoOptions,
+) (err error) {
 	if err = repo_module.CheckInitRepository(ctx, repo.OwnerName, repo.Name); err != nil {
 		return err
 	}
@@ -142,7 +160,11 @@ func initRepository(ctx context.Context, repoPath string, u *user_model.User, re
 	if opts.AutoInit {
 		tmpDir, err := os.MkdirTemp(os.TempDir(), "gitea-"+repo.Name)
 		if err != nil {
-			return fmt.Errorf("Failed to create temp dir for repository %s: %w", repo.RepoPath(), err)
+			return fmt.Errorf(
+				"Failed to create temp dir for repository %s: %w",
+				repo.RepoPath(),
+				err,
+			)
 		}
 		defer func() {
 			if err := util.RemoveAll(tmpDir); err != nil {
@@ -198,7 +220,11 @@ func initRepository(ctx context.Context, repoPath string, u *user_model.User, re
 }
 
 // CreateRepositoryDirectly creates a repository for the user/organization.
-func CreateRepositoryDirectly(ctx context.Context, doer, u *user_model.User, opts CreateRepoOptions) (*repo_model.Repository, error) {
+func CreateRepositoryDirectly(
+	ctx context.Context,
+	doer, u *user_model.User,
+	opts CreateRepoOptions,
+) (*repo_model.Repository, error) {
 	if !doer.IsAdmin && !u.CanCreateRepo() {
 		return nil, repo_model.ErrReachLimitOfRepo{
 			Limit: u.MaxRepoCreation,
@@ -234,6 +260,7 @@ func CreateRepositoryDirectly(ctx context.Context, doer, u *user_model.User, opt
 		TrustModel:                      opts.TrustModel,
 		IsMirror:                        opts.IsMirror,
 		DefaultBranch:                   opts.DefaultBranch,
+		Price:                           opts.Price,
 	}
 
 	var rollbackRepo *repo_model.Repository

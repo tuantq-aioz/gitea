@@ -122,6 +122,22 @@ func UpdateRepository(ctx context.Context, repo *repo_model.Repository, visibili
 	return committer.Commit()
 }
 
+// UpdateRepositoryPrice updates the repository price
+func UpdatePrice(ctx context.Context, repo *repo_model.Repository, price float64) error {
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer committer.Close()
+
+	if err = repo_model.UpdateRepoPrice(ctx, repo.ID, price); err != nil {
+		return fmt.Errorf("updatePrice: %w", err)
+	}
+
+	return committer.Commit()
+}
+
 // LinkedRepository returns the linked repo if any
 func LinkedRepository(ctx context.Context, a *repo_model.Attachment) (*repo_model.Repository, unit.Type, error) {
 	if a.IssueID != 0 {

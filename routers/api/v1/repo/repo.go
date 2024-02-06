@@ -126,15 +126,16 @@ func Search(ctx *context.APIContext) {
 	//     "$ref": "#/responses/validationError"
 
 	opts := &repo_model.SearchRepoOptions{
-		ListOptions:        utils.GetListOptions(ctx),
-		Actor:              ctx.Doer,
-		Keyword:            ctx.FormTrim("q"),
-		OwnerID:            ctx.FormInt64("uid"),
-		PriorityOwnerID:    ctx.FormInt64("priority_owner_id"),
-		TeamID:             ctx.FormInt64("team_id"),
-		TopicOnly:          ctx.FormBool("topic"),
-		Collaborate:        util.OptionalBoolNone,
-		Private:            ctx.IsSigned && (ctx.FormString("private") == "" || ctx.FormBool("private")),
+		ListOptions:     utils.GetListOptions(ctx),
+		Actor:           ctx.Doer,
+		Keyword:         ctx.FormTrim("q"),
+		OwnerID:         ctx.FormInt64("uid"),
+		PriorityOwnerID: ctx.FormInt64("priority_owner_id"),
+		TeamID:          ctx.FormInt64("team_id"),
+		TopicOnly:       ctx.FormBool("topic"),
+		Collaborate:     util.OptionalBoolNone,
+		Private: ctx.IsSigned &&
+			(ctx.FormString("private") == "" || ctx.FormBool("private")),
 		Template:           util.OptionalBoolNone,
 		StarredByID:        ctx.FormInt64("starredBy"),
 		IncludeDescription: ctx.FormBool("includeDesc"),
@@ -162,7 +163,11 @@ func Search(ctx *context.APIContext) {
 		opts.Collaborate = util.OptionalBoolTrue
 	case "":
 	default:
-		ctx.Error(http.StatusUnprocessableEntity, "", fmt.Errorf("Invalid search mode: \"%s\"", mode))
+		ctx.Error(
+			http.StatusUnprocessableEntity,
+			"",
+			fmt.Errorf("Invalid search mode: \"%s\"", mode),
+		)
 		return
 	}
 
@@ -237,7 +242,14 @@ func CreateUserRepo(ctx *context.APIContext, owner *user_model.User, opt api.Cre
 
 	// If the readme template does not exist, a 400 will be returned.
 	if opt.AutoInit && len(opt.Readme) > 0 && !slices.Contains(repo_module.Readmes, opt.Readme) {
-		ctx.Error(http.StatusBadRequest, "", fmt.Errorf("readme template does not exist, available templates: %v", repo_module.Readmes))
+		ctx.Error(
+			http.StatusBadRequest,
+			"",
+			fmt.Errorf(
+				"readme template does not exist, available templates: %v",
+				repo_module.Readmes,
+			),
+		)
 		return
 	}
 
@@ -273,7 +285,10 @@ func CreateUserRepo(ctx *context.APIContext, owner *user_model.User, opt api.Cre
 		ctx.Error(http.StatusInternalServerError, "GetRepositoryByID", err)
 	}
 
-	ctx.JSON(http.StatusCreated, convert.ToRepo(ctx, repo, access_model.Permission{AccessMode: perm.AccessModeOwner}))
+	ctx.JSON(
+		http.StatusCreated,
+		convert.ToRepo(ctx, repo, access_model.Permission{AccessMode: perm.AccessModeOwner}),
+	)
 }
 
 // Create one repository of mine
@@ -302,7 +317,11 @@ func Create(ctx *context.APIContext) {
 	opt := web.GetForm(ctx).(*api.CreateRepoOption)
 	if ctx.Doer.IsOrganization() {
 		// Shouldn't reach this condition, but just in case.
-		ctx.Error(http.StatusUnprocessableEntity, "", "not allowed creating repository for organization")
+		ctx.Error(
+			http.StatusUnprocessableEntity,
+			"",
+			"not allowed creating repository for organization",
+		)
 		return
 	}
 	CreateUserRepo(ctx, ctx.Doer, *opt)
@@ -351,7 +370,11 @@ func Generate(ctx *context.APIContext) {
 	}
 
 	if ctx.Doer.IsOrganization() {
-		ctx.Error(http.StatusUnprocessableEntity, "", "not allowed creating repository for organization")
+		ctx.Error(
+			http.StatusUnprocessableEntity,
+			"",
+			"not allowed creating repository for organization",
+		)
 		return
 	}
 
@@ -391,7 +414,11 @@ func Generate(ctx *context.APIContext) {
 		}
 
 		if !ctx.Doer.IsAdmin && !ctxUser.IsOrganization() {
-			ctx.Error(http.StatusForbidden, "", "Only admin can generate repository for other user.")
+			ctx.Error(
+				http.StatusForbidden,
+				"",
+				"Only admin can generate repository for other user.",
+			)
 			return
 		}
 
@@ -421,7 +448,10 @@ func Generate(ctx *context.APIContext) {
 	}
 	log.Trace("Repository generated [%d]: %s/%s", repo.ID, ctxUser.Name, repo.Name)
 
-	ctx.JSON(http.StatusCreated, convert.ToRepo(ctx, repo, access_model.Permission{AccessMode: perm.AccessModeOwner}))
+	ctx.JSON(
+		http.StatusCreated,
+		convert.ToRepo(ctx, repo, access_model.Permission{AccessMode: perm.AccessModeOwner}),
+	)
 }
 
 // CreateOrgRepoDeprecated create one repository of the organization
@@ -664,18 +694,39 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 		if err := repo_service.ChangeRepositoryName(ctx, ctx.Doer, repo, newRepoName); err != nil {
 			switch {
 			case repo_model.IsErrRepoAlreadyExist(err):
-				ctx.Error(http.StatusUnprocessableEntity, fmt.Sprintf("repo name is already taken [name: %s]", newRepoName), err)
+				ctx.Error(
+					http.StatusUnprocessableEntity,
+					fmt.Sprintf("repo name is already taken [name: %s]", newRepoName),
+					err,
+				)
 			case db.IsErrNameReserved(err):
-				ctx.Error(http.StatusUnprocessableEntity, fmt.Sprintf("repo name is reserved [name: %s]", newRepoName), err)
+				ctx.Error(
+					http.StatusUnprocessableEntity,
+					fmt.Sprintf("repo name is reserved [name: %s]", newRepoName),
+					err,
+				)
 			case db.IsErrNamePatternNotAllowed(err):
-				ctx.Error(http.StatusUnprocessableEntity, fmt.Sprintf("repo name's pattern is not allowed [name: %s, pattern: %s]", newRepoName, err.(db.ErrNamePatternNotAllowed).Pattern), err)
+				ctx.Error(
+					http.StatusUnprocessableEntity,
+					fmt.Sprintf(
+						"repo name's pattern is not allowed [name: %s, pattern: %s]",
+						newRepoName,
+						err.(db.ErrNamePatternNotAllowed).Pattern,
+					),
+					err,
+				)
 			default:
 				ctx.Error(http.StatusUnprocessableEntity, "ChangeRepositoryName", err)
 			}
 			return err
 		}
 
-		log.Trace("Repository name changed: %s/%s -> %s", ctx.Repo.Owner.Name, repo.Name, newRepoName)
+		log.Trace(
+			"Repository name changed: %s/%s -> %s",
+			ctx.Repo.Owner.Name,
+			repo.Name,
+			newRepoName,
+		)
 	}
 	// Update the name in the repo object for the response
 	repo.Name = newRepoName
@@ -702,7 +753,8 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 
 		visibilityChanged = repo.IsPrivate != *opts.Private
 		// when ForcePrivate enabled, you could change public repo to private, but only admin users can change private to public
-		if visibilityChanged && setting.Repository.ForcePrivate && !*opts.Private && !ctx.Doer.IsAdmin {
+		if visibilityChanged && setting.Repository.ForcePrivate && !*opts.Private &&
+			!ctx.Doer.IsAdmin {
 			err := fmt.Errorf("cannot change private repository to public")
 			ctx.Error(http.StatusUnprocessableEntity, "Force Private enabled", err)
 			return err
@@ -726,7 +778,8 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 	}
 
 	// Default branch only updated if changed and exist or the repository is empty
-	if opts.DefaultBranch != nil && repo.DefaultBranch != *opts.DefaultBranch && (repo.IsEmpty || ctx.Repo.GitRepo.IsBranchExist(*opts.DefaultBranch)) {
+	if opts.DefaultBranch != nil && repo.DefaultBranch != *opts.DefaultBranch &&
+		(repo.IsEmpty || ctx.Repo.GitRepo.IsBranchExist(*opts.DefaultBranch)) {
 		if !repo.IsEmpty {
 			if err := ctx.Repo.GitRepo.SetDefaultBranch(*opts.DefaultBranch); err != nil {
 				if !git.IsErrUnsupportedVersion(err) {
@@ -741,6 +794,13 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 	if err := repo_service.UpdateRepository(ctx, repo, visibilityChanged); err != nil {
 		ctx.Error(http.StatusInternalServerError, "UpdateRepository", err)
 		return err
+	}
+
+	if opts.Price != nil {
+		if err := repo_service.UpdatePrice(ctx, repo, *opts.Price); err != nil {
+			ctx.Error(http.StatusInternalServerError, "UpdateRepositoryPrice", err)
+			return err
+		}
 	}
 
 	log.Trace("Repository basic settings updated: %s/%s", owner.Name, repo.Name)
@@ -761,16 +821,24 @@ func updateRepoUnits(ctx *context.APIContext, opts api.EditRepoOption) error {
 		newHasIssues = *opts.HasIssues
 	}
 	if currHasIssues || newHasIssues {
-		if newHasIssues && opts.ExternalTracker != nil && !unit_model.TypeExternalTracker.UnitGlobalDisabled() {
+		if newHasIssues && opts.ExternalTracker != nil &&
+			!unit_model.TypeExternalTracker.UnitGlobalDisabled() {
 			// Check that values are valid
 			if !validation.IsValidExternalURL(opts.ExternalTracker.ExternalTrackerURL) {
 				err := fmt.Errorf("External tracker URL not valid")
 				ctx.Error(http.StatusUnprocessableEntity, "Invalid external tracker URL", err)
 				return err
 			}
-			if len(opts.ExternalTracker.ExternalTrackerFormat) != 0 && !validation.IsValidExternalTrackerURLFormat(opts.ExternalTracker.ExternalTrackerFormat) {
+			if len(opts.ExternalTracker.ExternalTrackerFormat) != 0 &&
+				!validation.IsValidExternalTrackerURLFormat(
+					opts.ExternalTracker.ExternalTrackerFormat,
+				) {
 				err := fmt.Errorf("External tracker URL format not valid")
-				ctx.Error(http.StatusUnprocessableEntity, "Invalid external tracker URL format", err)
+				ctx.Error(
+					http.StatusUnprocessableEntity,
+					"Invalid external tracker URL format",
+					err,
+				)
 				return err
 			}
 
@@ -828,7 +896,8 @@ func updateRepoUnits(ctx *context.APIContext, opts api.EditRepoOption) error {
 		newHasWiki = *opts.HasWiki
 	}
 	if currHasWiki || newHasWiki {
-		if newHasWiki && opts.ExternalWiki != nil && !unit_model.TypeExternalWiki.UnitGlobalDisabled() {
+		if newHasWiki && opts.ExternalWiki != nil &&
+			!unit_model.TypeExternalWiki.UnitGlobalDisabled() {
 			// Check that values are valid
 			if !validation.IsValidExternalURL(opts.ExternalWiki.ExternalWikiURL) {
 				err := fmt.Errorf("External wiki URL not valid")
@@ -1058,7 +1127,11 @@ func updateMirror(ctx *context.APIContext, opts api.EditRepoOption) error {
 
 		// Ensure the provided duration is not too short
 		if interval != 0 && interval < setting.Mirror.MinInterval {
-			err := fmt.Errorf("invalid mirror interval: %s is below minimum interval: %s", interval, setting.Mirror.MinInterval)
+			err := fmt.Errorf(
+				"invalid mirror interval: %s is below minimum interval: %s",
+				interval,
+				setting.Mirror.MinInterval,
+			)
 			ctx.Error(http.StatusUnprocessableEntity, "MirrorInterval", err)
 			return err
 		}
@@ -1066,13 +1139,24 @@ func updateMirror(ctx *context.APIContext, opts api.EditRepoOption) error {
 		mirror.Interval = interval
 		mirror.Repo = repo
 		mirror.ScheduleNextUpdate()
-		log.Trace("Repository %s Mirror[%d] Set Interval: %s NextUpdateUnix: %s", repo.FullName(), mirror.ID, interval, mirror.NextUpdateUnix)
+		log.Trace(
+			"Repository %s Mirror[%d] Set Interval: %s NextUpdateUnix: %s",
+			repo.FullName(),
+			mirror.ID,
+			interval,
+			mirror.NextUpdateUnix,
+		)
 	}
 
 	// update EnablePrune
 	if opts.EnablePrune != nil {
 		mirror.EnablePrune = *opts.EnablePrune
-		log.Trace("Repository %s Mirror[%d] Set EnablePrune: %t", repo.FullName(), mirror.ID, mirror.EnablePrune)
+		log.Trace(
+			"Repository %s Mirror[%d] Set EnablePrune: %t",
+			repo.FullName(),
+			mirror.ID,
+			mirror.EnablePrune,
+		)
 	}
 
 	// finally update the mirror in the DB
@@ -1190,7 +1274,10 @@ func GetIssueConfig(ctx *context.APIContext) {
 	//     "$ref": "#/responses/RepoIssueConfig"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
-	issueConfig, _ := issue.GetTemplateConfigFromDefaultBranch(ctx.Repo.Repository, ctx.Repo.GitRepo)
+	issueConfig, _ := issue.GetTemplateConfigFromDefaultBranch(
+		ctx.Repo.Repository,
+		ctx.Repo.GitRepo,
+	)
 	ctx.JSON(http.StatusOK, issueConfig)
 }
 

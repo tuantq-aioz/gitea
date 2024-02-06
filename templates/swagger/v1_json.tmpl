@@ -4632,13 +4632,24 @@
             "type": "string",
             "description": "path of the dir, file, symlink or submodule in the repo",
             "name": "filepath",
-            "in": "path",
-            "required": true
+            "in": "path"
           },
           {
             "type": "string",
             "description": "The name of the commit/branch/tag. Default the repository’s default branch (usually master)",
             "name": "ref",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "page number (default: 1)",
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "page size (default: 20, max: 50)",
+            "name": "limit",
             "in": "query"
           }
         ],
@@ -19132,6 +19143,12 @@
           "type": "string",
           "uniqueItems": true,
           "x-go-name": "Name"
+        },
+        "price": {
+          "description": "a price for the repository",
+          "type": "number",
+          "format": "double",
+          "x-go-name": "Price"
         },
         "private": {
           "description": "either `true` to make the repository private or `false` to make it public.\nNote: you will get a 422 error if the organization restricts changing repository visibility to organization\nowners and a non-owner tries to change the value of private.",

@@ -207,6 +207,8 @@ type EditRepoOption struct {
 	MirrorInterval *string `json:"mirror_interval,omitempty"`
 	// enable prune - remove obsolete remote-tracking references
 	EnablePrune *bool `json:"enable_prune,omitempty"`
+	// a price for the repository
+	Price *float64 `json:"price,omitempty"`
 }
 
 // GenerateRepoOption options when creating repository using a template

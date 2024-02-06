@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	"xorm.io/builder"
+
 	"code.gitea.io/gitea/models/db"
 	"code.gitea.io/gitea/models/unit"
 	user_model "code.gitea.io/gitea/models/user"
@@ -23,8 +25,6 @@ import (
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/timeutil"
 	"code.gitea.io/gitea/modules/util"
-
-	"xorm.io/builder"
 )
 
 // ErrUserDoesNotHaveAccessToRepo represents an error where the user doesn't has access to a given repo.
@@ -40,7 +40,11 @@ func IsErrUserDoesNotHaveAccessToRepo(err error) bool {
 }
 
 func (err ErrUserDoesNotHaveAccessToRepo) Error() string {
-	return fmt.Sprintf("user doesn't have access to repo [user_id: %d, repo_name: %s]", err.UserID, err.RepoName)
+	return fmt.Sprintf(
+		"user doesn't have access to repo [user_id: %d, repo_name: %s]",
+		err.UserID,
+		err.RepoName,
+	)
 }
 
 func (err ErrUserDoesNotHaveAccessToRepo) Unwrap() error {
@@ -188,6 +192,9 @@ type Repository struct {
 	CreatedUnix  timeutil.TimeStamp `xorm:"INDEX created"`
 	UpdatedUnix  timeutil.TimeStamp `xorm:"INDEX updated"`
 	ArchivedUnix timeutil.TimeStamp `xorm:"DEFAULT 0"`
+
+	// Product's price
+	Price float64 `xorm:"NOT NULL DEFAULT 0.0"`
 }
 
 func init() {
@@ -323,7 +330,11 @@ func (repo *Repository) CommitLink(commitID string) (result string) {
 
 // APIURL returns the repository API URL
 func (repo *Repository) APIURL() string {
-	return setting.AppURL + "api/v1/repos/" + url.PathEscape(repo.OwnerName) + "/" + url.PathEscape(repo.Name)
+	return setting.AppURL + "api/v1/repos/" + url.PathEscape(
+		repo.OwnerName,
+	) + "/" + url.PathEscape(
+		repo.Name,
+	)
 }
 
 // GetCommitsCountCacheKey returns cache key used for commits count caching.
@@ -530,12 +541,22 @@ func (repo *Repository) RepoPath() string {
 
 // Link returns the repository relative url
 func (repo *Repository) Link() string {
-	return setting.AppSubURL + "/" + url.PathEscape(repo.OwnerName) + "/" + url.PathEscape(repo.Name)
+	return setting.AppSubURL + "/" + url.PathEscape(
+		repo.OwnerName,
+	) + "/" + url.PathEscape(
+		repo.Name,
+	)
 }
 
 // ComposeCompareURL returns the repository comparison URL
 func (repo *Repository) ComposeCompareURL(oldCommitID, newCommitID string) string {
-	return fmt.Sprintf("%s/%s/compare/%s...%s", url.PathEscape(repo.OwnerName), url.PathEscape(repo.Name), util.PathEscapeSegments(oldCommitID), util.PathEscapeSegments(newCommitID))
+	return fmt.Sprintf(
+		"%s/%s/compare/%s...%s",
+		url.PathEscape(repo.OwnerName),
+		url.PathEscape(repo.Name),
+		util.PathEscapeSegments(oldCommitID),
+		util.PathEscapeSegments(newCommitID),
+	)
 }
 
 func (repo *Repository) ComposeBranchCompareURL(baseRepo *Repository, branchName string) string {
@@ -544,10 +565,19 @@ func (repo *Repository) ComposeBranchCompareURL(baseRepo *Repository, branchName
 	}
 	var cmpBranchEscaped string
 	if repo.ID != baseRepo.ID {
-		cmpBranchEscaped = fmt.Sprintf("%s/%s:", url.PathEscape(repo.OwnerName), url.PathEscape(repo.Name))
+		cmpBranchEscaped = fmt.Sprintf(
+			"%s/%s:",
+			url.PathEscape(repo.OwnerName),
+			url.PathEscape(repo.Name),
+		)
 	}
 	cmpBranchEscaped = fmt.Sprintf("%s%s", cmpBranchEscaped, util.PathEscapeSegments(branchName))
-	return fmt.Sprintf("%s/compare/%s...%s", baseRepo.Link(), util.PathEscapeSegments(baseRepo.DefaultBranch), cmpBranchEscaped)
+	return fmt.Sprintf(
+		"%s/compare/%s...%s",
+		baseRepo.Link(),
+		util.PathEscapeSegments(baseRepo.DefaultBranch),
+		cmpBranchEscaped,
+	)
 }
 
 // IsOwnedBy returns true when user owns this repository
@@ -606,7 +636,13 @@ func ComposeSSHCloneURL(ownerName, repoName string) string {
 	// non-standard port, it must use full URI
 	if setting.SSH.Port != 22 {
 		sshHost := net.JoinHostPort(sshDomain, strconv.Itoa(setting.SSH.Port))
-		return fmt.Sprintf("ssh://%s@%s/%s/%s.git", sshUser, sshHost, url.PathEscape(ownerName), url.PathEscape(repoName))
+		return fmt.Sprintf(
+			"ssh://%s@%s/%s/%s.git",
+			sshUser,
+			sshHost,
+			url.PathEscape(ownerName),
+			url.PathEscape(repoName),
+		)
 	}
 
 	// for standard port, it can use a shorter URI (without the port)
@@ -615,9 +651,21 @@ func ComposeSSHCloneURL(ownerName, repoName string) string {
 		sshHost = "[" + sshHost + "]" // for IPv6 address, wrap it with brackets
 	}
 	if setting.Repository.UseCompatSSHURI {
-		return fmt.Sprintf("ssh://%s@%s/%s/%s.git", sshUser, sshHost, url.PathEscape(ownerName), url.PathEscape(repoName))
+		return fmt.Sprintf(
+			"ssh://%s@%s/%s/%s.git",
+			sshUser,
+			sshHost,
+			url.PathEscape(ownerName),
+			url.PathEscape(repoName),
+		)
 	}
-	return fmt.Sprintf("%s@%s:%s/%s.git", sshUser, sshHost, url.PathEscape(ownerName), url.PathEscape(repoName))
+	return fmt.Sprintf(
+		"%s@%s:%s/%s.git",
+		sshUser,
+		sshHost,
+		url.PathEscape(ownerName),
+		url.PathEscape(repoName),
+	)
 }
 
 func (repo *Repository) cloneLink(isWiki bool) *CloneLink {
@@ -699,7 +747,10 @@ func (err ErrRepoNotExist) Unwrap() error {
 }
 
 // GetRepositoryByOwnerAndName returns the repository by given owner name and repo name
-func GetRepositoryByOwnerAndName(ctx context.Context, ownerName, repoName string) (*Repository, error) {
+func GetRepositoryByOwnerAndName(
+	ctx context.Context,
+	ownerName, repoName string,
+) (*Repository, error) {
 	var repo Repository
 	has, err := db.GetEngine(ctx).Table("repository").Select("repository.*").
 		Join("INNER", "`user`", "`user`.id = repository.owner_id").
@@ -791,7 +842,11 @@ func GetRepositoriesMapByIDs(ids []int64) (map[int64]*Repository, error) {
 }
 
 // IsRepositoryModelOrDirExist returns true if the repository with given name under user has already existed.
-func IsRepositoryModelOrDirExist(ctx context.Context, u *user_model.User, repoName string) (bool, error) {
+func IsRepositoryModelOrDirExist(
+	ctx context.Context,
+	u *user_model.User,
+	repoName string,
+) (bool, error) {
 	has, err := IsRepositoryModelExist(ctx, u, repoName)
 	if err != nil {
 		return false, err
@@ -800,7 +855,11 @@ func IsRepositoryModelOrDirExist(ctx context.Context, u *user_model.User, repoNa
 	return has || isDir, err
 }
 
-func IsRepositoryModelExist(ctx context.Context, u *user_model.User, repoName string) (bool, error) {
+func IsRepositoryModelExist(
+	ctx context.Context,
+	u *user_model.User,
+	repoName string,
+) (bool, error) {
 	return db.GetEngine(ctx).Get(&Repository{
 		OwnerID:   u.ID,
 		LowerName: strings.ToLower(repoName),
@@ -886,9 +945,13 @@ func CountNullArchivedRepository(ctx context.Context) (int64, error) {
 
 // FixNullArchivedRepository sets is_archived to false where it is null
 func FixNullArchivedRepository(ctx context.Context) (int64, error) {
-	return db.GetEngine(ctx).Where(builder.IsNull{"is_archived"}).Cols("is_archived").NoAutoTime().Update(&Repository{
-		IsArchived: false,
-	})
+	return db.GetEngine(ctx).
+		Where(builder.IsNull{"is_archived"}).
+		Cols("is_archived").
+		NoAutoTime().
+		Update(&Repository{
+			IsArchived: false,
+		})
 }
 
 // UpdateRepositoryOwnerName updates the owner name of all repositories owned by the user

@@ -37,7 +37,8 @@ func UpdateRepositoryOwnerNames(ctx context.Context, ownerID int64, ownerName st
 
 // UpdateRepositoryUpdatedTime updates a repository's updated time
 func UpdateRepositoryUpdatedTime(ctx context.Context, repoID int64, updateTime time.Time) error {
-	_, err := db.GetEngine(ctx).Exec("UPDATE repository SET updated_unix = ? WHERE id = ?", updateTime.Unix(), repoID)
+	_, err := db.GetEngine(ctx).
+		Exec("UPDATE repository SET updated_unix = ? WHERE id = ?", updateTime.Unix(), repoID)
 	return err
 }
 
@@ -107,7 +108,12 @@ func (err ErrRepoFilesAlreadyExist) Unwrap() error {
 }
 
 // CheckCreateRepository check if could created a repository
-func CheckCreateRepository(ctx context.Context, doer, u *user_model.User, name string, overwriteOrAdopt bool) error {
+func CheckCreateRepository(
+	ctx context.Context,
+	doer, u *user_model.User,
+	name string,
+	overwriteOrAdopt bool,
+) error {
 	if !doer.CanCreateRepo() {
 		return ErrReachLimitOfRepo{u.MaxRepoCreation}
 	}
@@ -136,7 +142,12 @@ func CheckCreateRepository(ctx context.Context, doer, u *user_model.User, name s
 }
 
 // ChangeRepositoryName changes all corresponding setting from old repository name to new one.
-func ChangeRepositoryName(ctx context.Context, doer *user_model.User, repo *Repository, newRepoName string) (err error) {
+func ChangeRepositoryName(
+	ctx context.Context,
+	doer *user_model.User,
+	repo *Repository,
+	newRepoName string,
+) (err error) {
 	oldRepoName := repo.Name
 	newRepoName = strings.ToLower(newRepoName)
 	if err = IsUsableRepoName(newRepoName); err != nil {
@@ -186,10 +197,23 @@ func ChangeRepositoryName(ctx context.Context, doer *user_model.User, repo *Repo
 
 // UpdateRepoSize updates the repository size, calculating it using getDirectorySize
 func UpdateRepoSize(ctx context.Context, repoID, gitSize, lfsSize int64) error {
-	_, err := db.GetEngine(ctx).ID(repoID).Cols("size", "git_size", "lfs_size").NoAutoTime().Update(&Repository{
-		Size:    gitSize + lfsSize,
-		GitSize: gitSize,
-		LFSSize: lfsSize,
+	_, err := db.GetEngine(ctx).
+		ID(repoID).
+		Cols("size", "git_size", "lfs_size").
+		NoAutoTime().
+		Update(&Repository{
+			Size:    gitSize + lfsSize,
+			GitSize: gitSize,
+			LFSSize: lfsSize,
+		})
+	return err
+}
+
+// UpdateRepoPrice updates the repository price
+func UpdateRepoPrice(ctx context.Context, repoID int64, price float64) error {
+	_, err := db.GetEngine(ctx).ID(repoID).Cols("price").NoAutoTime().Update(&Repository{
+		Price: price,
 	})
+
 	return err
 }
